@@ -1,0 +1,261 @@
+rm(list = ls())
+
+# Importing libraries
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(readr)
+
+
+#Loading the data
+df = read_csv("D:/Datasets/SampleSuperstore.csv")
+View(df)
+
+
+
+# Necessary checking 
+sum(is.na(df))
+sum(is.null(df))
+sum(duplicated(df))  # there are 17 duplicate values present in the data
+df <- distinct(df)  # extracting the distinct values
+
+# rechecking for duplicates
+df %>% duplicated() %>% sum()
+
+# Summary measurements
+summary(df) # There are some negative profits with very high magnitudes.
+glimpse(df)
+df %>% select(Profit, Sales, Quantity, Discount) %>% 
+   cor()
+
+# Profit has moderate correlation with Sales and Discount but
+# almost has no correlation with quantity.
+
+
+
+# Exploration of categorical variables :
+
+cmon_theme = theme_minimal() + 
+   theme(axis.title = element_text(face = 'bold',
+                                   size = 14),
+         axis.text = element_text(face = 'bold'),
+         plot.margin = unit(c(0.7,0.7,0.7,0.7), 'cm'),
+         axis.title.x = element_text(vjust = -3),
+         axis.title.y = element_text(vjust = 5),
+         axis.text.x = element_text(angle = 60, hjust = 1))
+
+# Categories
+df %>% select(Category) %>% group_by(Category) %>%
+   count() %>% ggplot(aes(x = Category, y = n)) + 
+   geom_bar(stat = 'identity', 
+            position = position_dodge(), fill = 7,
+            colour = 'black') +
+   cmon_theme
+# Regions 
+df %>% select(Region) %>% group_by(Region) %>%
+   count() %>% ggplot(aes(x = Region, y = n)) + 
+   geom_bar(stat = 'identity', 
+            position = position_dodge(), fill = 7,
+            colour = 'black') +
+   cmon_theme
+# Sub-categories
+df %>% select(`Sub-Category`) %>% group_by(`Sub-Category`) %>%
+   count() %>% ggplot(aes(x = `Sub-Category`, y = n)) + 
+   geom_bar(stat = 'identity', 
+            position = position_dodge(), fill = 7,
+            colour = 'black') +
+   cmon_theme
+# States
+df %>% select(State) %>% group_by(State) %>%
+   count() %>% ggplot(aes(x = State, y = n)) + 
+   geom_bar(stat = 'identity', 
+            position = position_dodge(), fill = 7,
+            colour = 'black') +
+   cmon_theme
+
+
+# Understanding the pattern of profit-loss
+df %>% ggplot(aes(x = Discount, y = Profit)) + 
+   geom_jitter() +
+   geom_hline(yintercept = 0, lty = 2, colour = 'red') +
+   cmon_theme +
+   scale_x_continuous(n.breaks = 10)
+# Here we see that, as the discount is increasing, the profit is 
+# decreasing and for the higher discounts, the profit becomes negative.
+
+
+
+# Pattern of profit with sale amount 
+df %>%
+   filter(Profit < 0) %>% 
+   ggplot(aes(x = Sales, y = Profit)) +
+   geom_point()
+# There is a little tendency to have more loss with higher sales.
+
+# Category wise sale
+df %>% group_by(Category) %>% 
+   summarise(total_sale = sum(Sales))
+# Highest sale amount is from technology.
+
+
+p1 = df %>% group_by(Category, `Sub-Category`) %>% 
+   count() %>% ggplot(aes(x = Category, 
+                          y = n, fill = `Sub-Category`)) +
+   geom_bar(stat = 'identity', position = position_dodge(),
+            colour = 'black') +
+   theme_minimal() + 
+   labs(y = 'Count of Sales') +
+   theme(axis.title = element_text(face = 'bold',
+                                   size = 14),
+         axis.text = element_text(face = 'bold'),
+         legend.text = element_text(face = 'bold'))
+
+
+p2 = df %>% group_by(`Sub-Category`) %>% 
+   summarise(Total_profit = sum(Profit)) %>% 
+   ggplot(aes(x = reorder(`Sub-Category`, Total_profit),
+              y = Total_profit)) +
+   geom_bar(stat = 'identity', width = 0.3, fill = 'red',
+            colour = 'black') +
+   labs(x = 'Sub Categories') +
+   theme_minimal() + 
+   theme(axis.title = element_text(face = 'bold',
+                                   size = 14),
+         axis.text = element_text(face = 'bold'),
+         axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggarrange(p1,p2, ncol = 2, nrow = 1)
+
+# Comment : From 'Book cases', 'Tables', 'Supplies', the loss is occurring
+#           A huge amount of loss is coming from production of tables.,
+# Though the sale of tables and book cases are moderately frequent.
+#  Also, the amount of loss is higher in table and book cases than supplies,
+# So, more loss are coming from the 'Furniture' section.
+# So, the production of furniture should be reduced.
+
+# On the other hand, the highest profit is coming from 'Copiers' but
+# it has less demand. And 'Phones', 'Accessories' have high demand 
+# as well as they are yielding high amount profit.
+# So, production of phones and accessories should be increased.
+
+
+
+
+# State wise
+df %>%
+   filter(Profit < 0) %>% 
+   ggplot(aes(x = State, y = Profit))+ 
+   geom_jitter(aes(color = State), size = 0.9) +
+   theme_minimal() +
+   theme(axis.text.x = element_text(angle = 90),
+         legend.position = 'none',
+         axis.text = element_text(face = 'bold')) +
+   scale_y_continuous(n.breaks = 10)
+# Comment : Big losses are coming from :
+# 'Texas', 'Pennsylvania', 'Ohio', 'North Carolina',
+# 'Colorado','Illinois' etc.
+# So, production from these states should be reduced.
+
+df %>% group_by(State) %>% 
+   summarise(Total_Profit = sum(Profit)) %>%
+   ggplot(aes(x = reorder(State, Total_Profit),
+              y = Total_Profit)) +
+   geom_bar(stat = 'identity', width = 0.5,
+            colour = 'black', fill = 7) +
+   theme_minimal() +
+   labs(x = 'States', y = 'Total Profit amount') +
+   theme(axis.text.x = element_text(angle = 90,
+                                    vjust = 0.3,
+                                    hjust = 1),
+         axis.text = element_text(face = 'bold'),
+         axis.title = element_text(face = 'bold')) +
+   scale_y_continuous(n.breaks = 12)
+# Also, from this picture, it is clear that, amount of loss is higher in those
+# above said states.
+# Also, 'California','Michigan','Washington','New York' etc these are making
+# such a high amount of profit.
+
+
+
+
+city_df = df %>% group_by(City) %>% 
+   summarise(tp = sum(Profit)) %>% 
+   arrange(tp)
+
+city1 = city_df %>% head(10)
+city2 = city_df %>% tail(10)
+
+bind_rows(city1, city2) %>% 
+   ggplot(aes(x = reorder(City, tp), y = tp)) +
+   geom_bar(stat = 'identity', colour = 'black',
+            width = 0.3, fill = 'skyblue') +
+   labs(x = "Cities", y = 'Total Profit Amount') +
+   theme_minimal() +
+   theme(axis.text.x = element_text(angle = 90,
+                                    vjust = 0.3,
+                                    hjust = 1),
+         axis.text = element_text(face = 'bold'),
+         axis.title = element_text(face = 'bold')) +
+   scale_y_continuous(n.breaks = 12) +
+   geom_hline(yintercept = 0, lwd = 1, lty = 3)
+
+
+# Therefore, the production should be reduced immediately in the first 
+# few cities and should be increased in the last few
+# cities to yield more profit.
+
+
+
+
+
+
+
+
+# So now that we have seen that, 'Tables','Book cases','Supplies'
+# are yielding loss all over the locations, we may investigate 
+# which variety is dominant in which cities.
+subcategory = c('Tables','Bookcases','Supplies')
+
+df %>% filter(City %in% city_df$City[1:20],
+              `Sub-Category` %in% subcategory) %>% 
+   group_by(City, `Sub-Category`) %>% 
+   summarise(tp = sum(Profit)) %>% 
+   ggplot(aes(x = reorder(City, tp),
+              y = tp, fill = `Sub-Category`)) +
+   geom_bar(stat = 'identity', position = position_dodge(),
+            colour = 'black') +
+   labs(x = "Cities", y = 'Total Profit Amount') +
+   theme_minimal() +
+   theme(axis.text.x = element_text(angle = 90,
+                                    vjust = 0.3,
+                                    hjust = 1),
+         axis.text = element_text(face = 'bold'),
+         axis.title = element_text(face = 'bold')) +
+   scale_y_continuous(n.breaks = 12) +
+   geom_hline(yintercept = 0, lwd = 1, lty = 3)
+# Comment : From the plot, it is clear that all three varieties are affecting Philadelphia
+# Loss is very much in the first few cities in the plot and in Burlington.
+# And, high loss from 'Supplies' is occurring only in Philadelphia and Round Rock
+# Also high losses are occurring from Bookcases only in Philadelphia, Colorado Springs, Houston, Dallas.
+# So, production should be reduced accordingly in the above mentioned zones.
+
+
+
+df %>% filter(`Sub-Category` %in% subcategory) %>% 
+   group_by(Region, `Sub-Category`) %>% 
+   summarise(tp = sum(Profit)) %>% 
+   ggplot(aes(x = reorder(Region, tp),
+              y = tp, fill = `Sub-Category`)) +
+   geom_bar(stat = 'identity', position = position_dodge(),
+            colour = 'black') +
+   labs(x = "Region", y = 'Total Profit Amount') +
+   theme_minimal() +
+   theme(axis.text.x = element_text(vjust = 0.3,
+                                    hjust = 1),
+         axis.text = element_text(face = 'bold'),
+         axis.title = element_text(face = 'bold'),
+         legend.title = element_text(face = 'bold',
+                                     size = 16),
+         legend.text = element_text(face = 'bold', size = 14)) +
+   scale_y_continuous(n.breaks = 12) 
+
